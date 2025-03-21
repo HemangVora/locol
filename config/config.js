@@ -60,4 +60,10 @@ export default {
       help: "For help, please ask in the #help channel or use the !help command.",
     },
   },
+
+  aiProvider: {
+    provider: "claude", // 'claude' or 'openai'
+    apiKey: process.env.ANTHROPIC_API_KEY || null,
+    defaultModel: "claude-3-sonnet-20240229",
+  },
 };

@@ -5,7 +5,7 @@ import fetch from "node-fetch";
  */
 class AIHelper {
   constructor(apiKey = null) {
-    this.apiKey = apiKey || process.env.OPENAI_API_KEY;
+    this.apiKey = apiKey || process.env.ANTHROPIC_API_KEY;
     this.context = [];
     this.maxContextLength = 10; // Keep track of last 10 interactions
   }
@@ -32,7 +32,7 @@ class AIHelper {
   }
 
   /**
-   * Generate AI response using OpenAI API
+   * Generate AI response using Anthropic Claude API
    * @param {string} prompt - User prompt
    * @param {object} options - Additional options
    * @returns {Promise<string>} - AI response
@@ -40,7 +40,7 @@ class AIHelper {
   async generateResponse(prompt, options = {}) {
     // If no API key is set, return a default response
     if (!this.apiKey) {
-      console.warn("No OpenAI API key provided. Using fallback response.");
+      console.warn("No Anthropic API key provided. Using fallback response.");
       return this.getFallbackResponse(prompt);
     }
 
@@ -48,43 +48,39 @@ class AIHelper {
       // Add user message to context
       this.addToContext("user", prompt);
 
-      // Prepare messages for API call
-      const messages = [
-        {
-          role: "system",
-          content:
-            options.systemPrompt ||
-            "You are a helpful community assistant for a Discord server.",
-        },
-        ...this.context,
-      ];
+      // Prepare system prompt
+      const systemPrompt =
+        options.systemPrompt ||
+        "You are a helpful community assistant for a Discord server.";
 
-      // Make API call to OpenAI
-      const response = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-          body: JSON.stringify({
-            model: options.model || "gpt-3.5-turbo",
-            messages,
-            max_tokens: options.maxTokens || 500,
-            temperature: options.temperature || 0.7,
-          }),
-        }
-      );
+      // Make API call to Anthropic's Claude
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": this.apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: options.model || "claude-3-sonnet-20240229",
+          max_tokens: options.maxTokens || 500,
+          temperature: options.temperature || 0.7,
+          system: systemPrompt,
+          messages: this.context.map((message) => ({
+            role: message.role,
+            content: message.content,
+          })),
+        }),
+      });
 
       const data = await response.json();
 
       if (!response.ok) {
-        console.error("Error from OpenAI API:", data);
+        console.error("Error from Claude API:", data);
         return this.getFallbackResponse(prompt);
       }
 
-      const aiResponse = data.choices[0].message.content.trim();
+      const aiResponse = data.content[0].text;
 
       // Add assistant response to context
       this.addToContext("assistant", aiResponse);
