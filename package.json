@@ -1,0 +1,29 @@
+{
+    "name": "discord-community-ai",
+    "version": "1.0.0",
+    "description": "AI agent that listens to Discord messages and helps manage the community",
+    "main": "src/index.js",
+    "scripts": {
+        "start": "node src/index.js",
+        "dev": "nodemon src/index.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "discord",
+        "bot",
+        "ai",
+        "community",
+        "management"
+    ],
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "discord.js": "^14.14.1",
+        "dotenv": "^16.3.1",
+        "node-fetch": "^3.3.2"
+    },
+    "devDependencies": {
+        "nodemon": "^3.0.2"
+    },
+    "type": "module"
+}
