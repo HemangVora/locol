@@ -23,17 +23,38 @@ interface Cast {
   replies: any;
 }
 
+interface Metrics {
+  totalCasts: number;
+  totalLikes: number;
+  totalReplies: number;
+  totalCharacters: number;
+  avgLikesPerCast: number;
+  engagementRate: number;
+  consistencyScore: number;
+}
+
 interface ScoreData {
+  score: number;
+  metrics: Metrics;
+  rating: string;
+  feedback: string[];
+}
+
+interface ScoreResponse {
   casts: Cast[];
+  score: ScoreData;
 }
 
 const Home: NextPage = () => {
   const { user } = useNeynarContext();
   const [text, setText] = useState("");
   const [userCasts, setUserCasts] = useState<Cast[]>([]);
+  const [scoreData, setScoreData] = useState<ScoreData | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handlePublishCast = async () => {
     try {
+      setLoading(true);
       await axios.post<{ message: string }>("/api/cast", {
         signerUuid: user?.signer_uuid,
         text,
@@ -45,24 +66,31 @@ const Home: NextPage = () => {
     } catch (err) {
       const { message } = (err as AxiosError).response?.data as ErrorRes;
       alert(message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const fetchScore = async () => {
     if (user) {
       try {
+        setLoading(true);
         const response = await axios.post<{
           message: string;
-          data: { casts: Cast[] };
+          data: ScoreResponse;
         }>("/api/getScore", {
           fid: user?.fid,
         });
-        console.log(response.data.data);
-        if (response.data.data && response.data.data.casts) {
-          setUserCasts(response.data.data.casts);
+
+        if (response.data.data) {
+          const { casts, score } = response.data.data;
+          setUserCasts(casts || []);
+          setScoreData(score || null);
         }
       } catch (error) {
         console.error("Error fetching casts:", error);
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -73,6 +101,35 @@ const Home: NextPage = () => {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
+  };
+
+  // Render a meter for the score visualization
+  const renderScoreMeter = (score: number) => {
+    // Define color based on score
+    const getScoreColor = () => {
+      if (score >= 80) return "#4ade80"; // Green
+      if (score >= 60) return "#facc15"; // Yellow
+      if (score >= 40) return "#fb923c"; // Orange
+      return "#f87171"; // Red
+    };
+
+    return (
+      <div className="w-full mt-4">
+        <div className="flex justify-between mb-1">
+          <span className="text-base font-medium">Your Farcaster Score</span>
+          <span className="text-sm font-semibold">{score}/100</span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2.5">
+          <div
+            className="h-2.5 rounded-full"
+            style={{
+              width: `${score}%`,
+              backgroundColor: getScoreColor(),
+            }}
+          ></div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -89,12 +146,18 @@ const Home: NextPage = () => {
       <main className={styles.main}>
         <ConnectButton />
 
-        <div style={{ marginTop: "2rem" }}>
+        <div style={{ marginTop: "2rem", width: "100%", maxWidth: "800px" }}>
           <NeynarAuthButton />
+
+          {loading && (
+            <div className="text-center py-4">
+              <p>Loading...</p>
+            </div>
+          )}
 
           {user && (
             <div
-              className="flex flex-col gap-4 w-96 p-4 rounded-md shadow-md"
+              className="flex flex-col gap-4 w-full max-w-md p-4 rounded-md shadow-md"
               style={{ marginTop: "1rem" }}
             >
               <div className="flex items-center gap-4">
@@ -109,6 +172,48 @@ const Home: NextPage = () => {
                 )}
                 <p className="text-lg font-semibold">{user?.display_name}</p>
               </div>
+
+              {scoreData && (
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  {renderScoreMeter(scoreData.score)}
+
+                  <div className="mt-4">
+                    <h3 className="font-semibold text-lg">
+                      Rating:{" "}
+                      <span className="text-blue-600">{scoreData.rating}</span>
+                    </h3>
+
+                    <div className="mt-2">
+                      <h4 className="font-medium">Feedback:</h4>
+                      <ul className="list-disc pl-5 mt-1 text-sm text-gray-700">
+                        {scoreData.feedback.map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                      <div className="bg-gray-50 p-2 rounded">
+                        <span className="font-medium">Total Casts:</span>{" "}
+                        {scoreData.metrics.totalCasts}
+                      </div>
+                      <div className="bg-gray-50 p-2 rounded">
+                        <span className="font-medium">Total Likes:</span>{" "}
+                        {scoreData.metrics.totalLikes}
+                      </div>
+                      <div className="bg-gray-50 p-2 rounded">
+                        <span className="font-medium">Avg. Likes/Cast:</span>{" "}
+                        {scoreData.metrics.avgLikesPerCast.toFixed(1)}
+                      </div>
+                      <div className="bg-gray-50 p-2 rounded">
+                        <span className="font-medium">Engagement Rate:</span>{" "}
+                        {scoreData.metrics.engagementRate.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
@@ -124,17 +229,18 @@ const Home: NextPage = () => {
               />
               <button
                 onClick={handlePublishCast}
-                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 transition-colors duration-200 ease-in-out"
+                disabled={loading}
+                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 transition-colors duration-200 ease-in-out disabled:bg-blue-300"
                 style={{
                   marginTop: "1rem",
                   padding: "0.5rem 1rem",
-                  backgroundColor: "#3b82f6",
+                  backgroundColor: loading ? "#93c5fd" : "#3b82f6",
                   color: "white",
                   borderRadius: "0.375rem",
                   boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
                 }}
               >
-                Cast
+                {loading ? "Posting..." : "Cast"}
               </button>
             </div>
           )}
