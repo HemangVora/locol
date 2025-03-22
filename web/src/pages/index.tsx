@@ -1,19 +1,20 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import type React from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import type { NextPage } from "next";
-import Head from "next/head";
-import styles from "../styles/Home.module.css";
-import { useEffect, useState } from "react";
 import { NeynarAuthButton, useNeynarContext } from "@neynar/react";
-import axios, { AxiosError } from "axios";
-import Image from "next/image";
+import { useAccount } from "wagmi";
+import axios from "axios";
+import { Card, CardContent } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Textarea } from "../components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
+import { Loader2 } from "lucide-react";
+import CastList from "../components/cast-list";
 
-interface ErrorRes {
-  message: string;
-}
-
-interface Cast {
+// API Cast type from Neynar
+interface ApiCast {
   object: string;
   hash: string;
   author: any;
@@ -21,6 +22,17 @@ interface Cast {
   timestamp: string;
   reactions: any;
   replies: any;
+}
+
+// UI Cast type matching the one in cast-list.tsx
+interface Cast {
+  hash: string;
+  text: string;
+  timestamp: string;
+  mentions: string[];
+  likeCount: number;
+  replyCount: number;
+  recastCount: number;
 }
 
 interface Metrics {
@@ -33,29 +45,186 @@ interface Metrics {
   consistencyScore: number;
 }
 
+interface Web3Metrics {
+  totalWeb3Mentions: number;
+  blockchainMentions: number;
+  defiMentions: number;
+  nftMentions: number;
+  walletMentions: number;
+  conceptMentions: number;
+  web3Percentage: number;
+  mostDiscussedCategory: string;
+  categories: {
+    blockchain: Record<string, number>;
+    defi: Record<string, number>;
+    nft: Record<string, number>;
+    wallet: Record<string, number>;
+    concepts: Record<string, number>;
+  };
+}
+
+interface Web3Score {
+  score: number;
+  rating: string;
+  metrics: Web3Metrics;
+  expertise: string[];
+  feedback: string[];
+}
+
 interface ScoreData {
   score: number;
   metrics: Metrics;
   rating: string;
   feedback: string[];
+  web3Score: Web3Score;
 }
 
 interface ScoreResponse {
-  casts: Cast[];
+  casts: ApiCast[];
   score: ScoreData;
 }
 
-const Home: NextPage = () => {
+// Convert API cast to UI cast
+function adaptCastsForUI(apiCasts: ApiCast[]): Cast[] {
+  return apiCasts.map((cast) => ({
+    hash: cast.hash,
+    text: cast.text,
+    timestamp: cast.timestamp,
+    mentions: cast.author?.username ? [cast.author.username] : [],
+    likeCount: cast.reactions?.likes_count || 0,
+    replyCount: cast.replies?.count || 0,
+    recastCount: cast.reactions?.recasts_count || 0,
+  }));
+}
+
+// Assuming these components exist in your project
+const OnboardingGuide = ({
+  user,
+  hasWallet,
+  hasCasted,
+  onConnectWallet,
+}: any) => (
+  <Card className="overflow-hidden border-none bg-gradient-to-br from-violet-50 to-purple-50 shadow-md transition-all hover:shadow-lg">
+    <CardContent className="p-6">
+      <h3 className="mb-4 text-lg font-semibold">Get Started</h3>
+      <ul className="space-y-3">
+        <li className="flex items-center gap-3">
+          <div
+            className={`flex h-6 w-6 items-center justify-center rounded-full ${
+              hasWallet ? "bg-green-500" : "bg-gray-200"
+            }`}
+          >
+            {hasWallet && <span className="text-xs text-white">✓</span>}
+          </div>
+          <span className={hasWallet ? "text-gray-700" : "font-medium"}>
+            Connect wallet
+          </span>
+        </li>
+        <li className="flex items-center gap-3">
+          <div
+            className={`flex h-6 w-6 items-center justify-center rounded-full ${
+              hasCasted ? "bg-green-500" : "bg-gray-200"
+            }`}
+          >
+            {hasCasted && <span className="text-xs text-white">✓</span>}
+          </div>
+          <span className={hasCasted ? "text-gray-700" : "font-medium"}>
+            Create your first cast
+          </span>
+        </li>
+      </ul>
+      {!hasWallet && (
+        <Button
+          onClick={onConnectWallet}
+          variant="outline"
+          className="mt-4 w-full rounded-full border-violet-200 bg-white/50 font-medium text-violet-700 backdrop-blur-sm hover:bg-violet-100"
+        >
+          Connect Wallet
+        </Button>
+      )}
+    </CardContent>
+  </Card>
+);
+
+const ScoreCard = ({ scoreData }: { scoreData: any }) => (
+  <Card className="overflow-hidden border-none bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md transition-all hover:shadow-lg">
+    <CardContent className="p-6">
+      <h3 className="mb-3 text-lg font-semibold">Your Score</h3>
+      <div className="flex items-center justify-between">
+        <div className="text-3xl font-bold text-blue-600">
+          {scoreData.score || 0}
+        </div>
+        <div className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+          Level {Math.floor((scoreData.score || 0) / 100) + 1}
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+const Web3ScoreCard = ({ web3Score }: { web3Score: any }) => (
+  <Card className="overflow-hidden border-none bg-gradient-to-br from-emerald-50 to-teal-50 shadow-md transition-all hover:shadow-lg">
+    <CardContent className="p-6">
+      <h3 className="mb-3 text-lg font-semibold">Web3 Activity</h3>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="rounded-xl bg-white p-3 shadow-sm">
+          <div className="text-sm text-gray-500">NFTs</div>
+          <div className="text-xl font-semibold">
+            {web3Score.metrics?.nftMentions || 0}
+          </div>
+        </div>
+        <div className="rounded-xl bg-white p-3 shadow-sm">
+          <div className="text-sm text-gray-500">Transactions</div>
+          <div className="text-xl font-semibold">
+            {web3Score.metrics?.totalWeb3Mentions || 0}
+          </div>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+export default function Home() {
   const { user } = useNeynarContext();
+  const { address, isConnected } = useAccount();
   const [text, setText] = useState("");
   const [userCasts, setUserCasts] = useState<Cast[]>([]);
   const [scoreData, setScoreData] = useState<ScoreData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [userDbData, setUserDbData] = useState<any>(null);
+  const [walletLinked, setWalletLinked] = useState(false);
+
+  // Check if user has submitted any casts
+  const hasCasted = userCasts.length > 0;
+
+  const handleConnectWallet = async () => {
+    if (!user?.fid || !address) return;
+
+    try {
+      setLoading(true);
+      // Update user with wallet address
+      const response = await axios.put("/api/user", {
+        fid: user.fid,
+        walletAddress: address,
+      });
+
+      if (response.data.success) {
+        setUserDbData(response.data.data);
+        setWalletLinked(true);
+        alert("Wallet connected successfully!");
+      }
+    } catch (error) {
+      console.error("Error connecting wallet:", error);
+      alert("Failed to connect wallet. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handlePublishCast = async () => {
     try {
       setLoading(true);
-      await axios.post<{ message: string }>("/api/cast", {
+      await axios.post("/api/cast", {
         signerUuid: user?.signer_uuid,
         text,
       });
@@ -63,8 +232,8 @@ const Home: NextPage = () => {
 
       setText("");
       fetchScore(); // Refresh casts after publishing
-    } catch (err) {
-      const { message } = (err as AxiosError).response?.data as ErrorRes;
+    } catch (err: any) {
+      const message = err.response?.data?.message || "Failed to publish cast";
       alert(message);
     } finally {
       setLoading(false);
@@ -75,16 +244,33 @@ const Home: NextPage = () => {
     if (user) {
       try {
         setLoading(true);
+        // Fetch user first
+        try {
+          const userResponse = await axios.get(`/api/user?fid=${user.fid}`);
+          if (userResponse.data.success) {
+            setUserDbData(userResponse.data.data);
+            setWalletLinked(!!userResponse.data.data.walletAddress);
+          }
+        } catch (userError) {
+          // User doesn't exist yet, will be created in getScore
+          console.log("User not found in database, will create new record");
+        }
+
+        // Now get score data
         const response = await axios.post<{
           message: string;
           data: ScoreResponse;
         }>("/api/getScore", {
           fid: user?.fid,
+          username: user?.username,
+          displayName: user?.display_name,
+          pfpUrl: user?.pfp_url,
+          signerUuid: user?.signer_uuid,
         });
 
         if (response.data.data) {
           const { casts, score } = response.data.data;
-          setUserCasts(casts || []);
+          setUserCasts(adaptCastsForUI(casts || []));
           setScoreData(score || null);
         }
       } catch (error) {
@@ -97,202 +283,122 @@ const Home: NextPage = () => {
 
   useEffect(() => {
     fetchScore();
-  }, [user]);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
-
-  // Render a meter for the score visualization
-  const renderScoreMeter = (score: number) => {
-    // Define color based on score
-    const getScoreColor = () => {
-      if (score >= 80) return "#4ade80"; // Green
-      if (score >= 60) return "#facc15"; // Yellow
-      if (score >= 40) return "#fb923c"; // Orange
-      return "#f87171"; // Red
-    };
-
-    return (
-      <div className="w-full mt-4">
-        <div className="flex justify-between mb-1">
-          <span className="text-base font-medium">Your Farcaster Score</span>
-          <span className="text-sm font-semibold">{score}/100</span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2.5">
-          <div
-            className="h-2.5 rounded-full"
-            style={{
-              width: `${score}%`,
-              backgroundColor: getScoreColor(),
-            }}
-          ></div>
-        </div>
-      </div>
-    );
-  };
+    // Check if wallet is connected
+    if (isConnected && address && userDbData?.walletAddress === address) {
+      setWalletLinked(true);
+    }
+  }, [user, isConnected, address, userDbData?.walletAddress]);
 
   return (
-    <div className={styles.container}>
-      <Head>
-        <title>RainbowKit App with Farcaster</title>
-        <meta
-          content="Generated by @rainbow-me/create-rainbowkit"
-          name="description"
-        />
-        <link href="/favicon.ico" rel="icon" />
-      </Head>
+    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
+      <header className="sticky top-0 z-10 backdrop-blur-lg">
+        <div className="container mx-auto flex h-16 items-center justify-between px-4">
+          <h1 className="bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-xl font-bold text-transparent">
+            locol
+          </h1>
+          <ConnectButton />
+        </div>
+      </header>
 
-      <main className={styles.main}>
-        <ConnectButton />
-
-        <div style={{ marginTop: "2rem", width: "100%", maxWidth: "800px" }}>
+      <main className="container mx-auto px-4 py-8">
+        <div className="mb-8 flex justify-center">
           <NeynarAuthButton />
+        </div>
 
-          {loading && (
-            <div className="text-center py-4">
-              <p>Loading...</p>
-            </div>
-          )}
+        {loading && !user && (
+          <div className="my-12 flex justify-center">
+            <Loader2 className="h-10 w-10 animate-spin text-violet-600" />
+          </div>
+        )}
 
-          {user && (
-            <div
-              className="flex flex-col gap-4 w-full max-w-md p-4 rounded-md shadow-md"
-              style={{ marginTop: "1rem" }}
-            >
-              <div className="flex items-center gap-4">
-                {user.pfp_url && (
-                  <img
-                    src={user.pfp_url}
-                    width={40}
-                    height={40}
-                    alt="User Profile Picture"
-                    className="rounded-full"
-                  />
-                )}
-                <p className="text-lg font-semibold">{user?.display_name}</p>
-              </div>
-
-              {scoreData && (
-                <div className="bg-white p-4 rounded-lg shadow-sm">
-                  {renderScoreMeter(scoreData.score)}
-
-                  <div className="mt-4">
-                    <h3 className="font-semibold text-lg">
-                      Rating:{" "}
-                      <span className="text-blue-600">{scoreData.rating}</span>
-                    </h3>
-
-                    <div className="mt-2">
-                      <h4 className="font-medium">Feedback:</h4>
-                      <ul className="list-disc pl-5 mt-1 text-sm text-gray-700">
-                        {scoreData.feedback.map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                      <div className="bg-gray-50 p-2 rounded">
-                        <span className="font-medium">Total Casts:</span>{" "}
-                        {scoreData.metrics.totalCasts}
-                      </div>
-                      <div className="bg-gray-50 p-2 rounded">
-                        <span className="font-medium">Total Likes:</span>{" "}
-                        {scoreData.metrics.totalLikes}
-                      </div>
-                      <div className="bg-gray-50 p-2 rounded">
-                        <span className="font-medium">Avg. Likes/Cast:</span>{" "}
-                        {scoreData.metrics.avgLikesPerCast.toFixed(1)}
-                      </div>
-                      <div className="bg-gray-50 p-2 rounded">
-                        <span className="font-medium">Engagement Rate:</span>{" "}
-                        {scoreData.metrics.engagementRate.toFixed(2)}
-                      </div>
+        {user && (
+          <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-[1fr_2fr]">
+            <div className="space-y-6">
+              <Card className="overflow-hidden border-none bg-white shadow-md transition-all hover:shadow-lg">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-16 w-16 ring-2 ring-violet-200 ring-offset-2">
+                      <AvatarImage src={user.pfp_url} alt={user.display_name} />
+                      <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white">
+                        {user.display_name?.charAt(0) || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h2 className="text-xl font-bold">{user.display_name}</h2>
+                      <p className="text-sm text-violet-600">
+                        @{user.username}
+                      </p>
+                      {walletLinked && address && (
+                        <p className="mt-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                          {`${address.substring(0, 6)}...${address.substring(
+                            address.length - 4
+                          )}`}
+                        </p>
+                      )}
                     </div>
                   </div>
-                </div>
+                </CardContent>
+              </Card>
+
+              <OnboardingGuide
+                user={userDbData}
+                hasWallet={walletLinked}
+                hasCasted={hasCasted}
+                onConnectWallet={handleConnectWallet}
+              />
+
+              <Card className="overflow-hidden border-none bg-white shadow-md transition-all hover:shadow-lg">
+                <CardContent className="p-6">
+                  <h3 className="mb-4 text-lg font-semibold">Create a Cast</h3>
+                  <Textarea
+                    value={text}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                      setText(e.target.value)
+                    }
+                    placeholder="What's on your mind?"
+                    className="mb-4 min-h-[120px] resize-none rounded-xl border-gray-200 bg-gray-50 focus:border-violet-300 focus:ring-violet-300"
+                  />
+                  <Button
+                    onClick={handlePublishCast}
+                    disabled={loading || !text.trim()}
+                    className="w-full rounded-full bg-gradient-to-r from-violet-600 to-purple-600 font-medium shadow-md transition-all hover:shadow-lg disabled:from-gray-400 disabled:to-gray-500"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Posting...
+                      </>
+                    ) : (
+                      "Cast"
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-6">
+              {scoreData && (
+                <>
+                  <ScoreCard scoreData={scoreData} />
+                  {scoreData.web3Score && (
+                    <Web3ScoreCard web3Score={scoreData.web3Score} />
+                  )}
+                </>
               )}
 
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Say Something"
-                rows={5}
-                className="w-full p-2 rounded-md shadow-md text-black placeholder:text-gray-900"
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  borderRadius: "0.375rem",
-                  boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
-                }}
-              />
-              <button
-                onClick={handlePublishCast}
-                disabled={loading}
-                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 transition-colors duration-200 ease-in-out disabled:bg-blue-300"
-                style={{
-                  marginTop: "1rem",
-                  padding: "0.5rem 1rem",
-                  backgroundColor: loading ? "#93c5fd" : "#3b82f6",
-                  color: "white",
-                  borderRadius: "0.375rem",
-                  boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
-                }}
-              >
-                {loading ? "Posting..." : "Cast"}
-              </button>
+              {userCasts.length > 0 && <CastList casts={userCasts} />}
             </div>
-          )}
-
-          {userCasts.length > 0 && (
-            <div className="mt-8 w-full max-w-2xl">
-              <h2 className="text-xl font-bold mb-4">Your Recent Casts</h2>
-              <div className="space-y-4">
-                {userCasts.map((cast) => (
-                  <div
-                    key={cast.hash}
-                    className="p-4 border rounded-lg shadow-sm"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      {cast.author && cast.author.pfp_url && (
-                        <img
-                          src={cast.author.pfp_url}
-                          width={32}
-                          height={32}
-                          alt="Author"
-                          className="rounded-full"
-                        />
-                      )}
-                      <span className="font-medium">
-                        {cast.author?.display_name || "User"}
-                      </span>
-                      <span className="text-gray-500 text-sm ml-auto">
-                        {formatDate(cast.timestamp)}
-                      </span>
-                    </div>
-                    <p className="text-gray-800">{cast.text}</p>
-                    <div className="flex mt-2 text-sm text-gray-500">
-                      <span className="mr-4">
-                        ❤️ {cast.reactions?.likes_count || 0}
-                      </span>
-                      <span>💬 {cast.replies?.count || 0}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </main>
 
-      <footer className={styles.footer}>
-        <a href="https://rainbow.me" rel="noopener noreferrer" target="_blank">
-          Made with ❤️ by your frens at 🌈
-        </a>
+      <footer className="mt-12 border-t border-gray-200 bg-white py-6 text-center">
+        <p className="text-sm font-medium text-gray-500">
+          Made with <span className="text-red-500">❤️</span> by your frens at{" "}
+          <span className="text-violet-500">🌈</span>
+        </p>
       </footer>
     </div>
   );
-};
-
-export default Home;
+}

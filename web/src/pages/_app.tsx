@@ -34,5 +34,4 @@ function MyApp({ Component, pageProps }: AppProps) {
     </WagmiProvider>
   );
 }
-
 export default MyApp;
