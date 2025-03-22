@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import User, { IUser, IWeb3Score, IGeneralScore } from "../models/User";
-import { MONGODB_URI } from "../lib/constants";
 
 // Connect to MongoDB database
 export async function connectToDatabase() {
@@ -11,7 +10,7 @@ export async function connectToDatabase() {
       return true;
     }
 
-    await mongoose.connect(MONGODB_URI);
+    await mongoose.connect(process.env.NEXT_PUBLIC_MONGODB_URI as string);
     console.log("Connected to MongoDB");
     return true;
   } catch (error) {
