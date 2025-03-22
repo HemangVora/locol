@@ -10,8 +10,9 @@ import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
-import { Loader2 } from "lucide-react";
+import { Loader2, LogOut } from "lucide-react";
 import CastList from "../components/cast-list";
+import { useSession, signOut } from "next-auth/react";
 
 // API Cast type from Neynar
 interface ApiCast {
@@ -187,6 +188,7 @@ const Web3ScoreCard = ({ web3Score }: { web3Score: any }) => (
 export default function Home() {
   const { user } = useNeynarContext();
   const { address, isConnected } = useAccount();
+  const { data: session } = useSession();
   const [text, setText] = useState("");
   const [userCasts, setUserCasts] = useState<Cast[]>([]);
   const [scoreData, setScoreData] = useState<ScoreData | null>(null);
@@ -281,6 +283,10 @@ export default function Home() {
     }
   };
 
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: "/" });
+  };
+
   useEffect(() => {
     fetchScore();
 
@@ -297,7 +303,20 @@ export default function Home() {
           <h1 className="bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-xl font-bold text-transparent">
             locol
           </h1>
-          <ConnectButton />
+          <div className="flex items-center gap-3">
+            {session && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2 rounded-full border-violet-200 text-violet-700"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </Button>
+            )}
+            <ConnectButton />
+          </div>
         </div>
       </header>
 

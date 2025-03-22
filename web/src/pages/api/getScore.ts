@@ -8,7 +8,7 @@ import {
 
 // Create Neynar API client with API key
 const client = new NeynarAPIClient({
-  apiKey: process.env.NEYNAR_API_KEY!,
+  apiKey: process.env.NEXT_PUBLIC_NEYNAR_API_KEY!,
 });
 
 // Web3 related keywords to detect in casts

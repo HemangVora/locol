@@ -18,15 +18,11 @@ export default function SignIn({ providers }: { providers: any }) {
         <Card className="overflow-hidden border-none shadow-xl">
           <CardHeader className="bg-gradient-to-r from-violet-500 to-indigo-600 px-6 py-8 text-white">
             <CardTitle className="text-center text-2xl font-bold">
-              Sign in to Farcaster Web3 Profile
+              Sign in to Locol
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
             <div className="space-y-4">
-              <p className="text-center text-gray-600 dark:text-gray-300">
-                Connect with one of our available providers:
-              </p>
-
               <div className="flex flex-col gap-4 pt-4">
                 {Object.values(providers).map((provider: any) => (
                   <Button
