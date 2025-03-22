@@ -66,4 +66,27 @@ export default {
     apiKey: process.env.ANTHROPIC_API_KEY || null,
     defaultModel: "claude-3-sonnet-20240229",
   },
+
+  // Wallet integration settings
+  walletIntegration: {
+    enabled: true,
+    // Automatically create a wallet for new members
+    autoCreateWallet: true,
+    // Send DM to new members about wallet setup
+    dmNewMembers: true,
+    // Minimum score for role assignment
+    minScoreForRole: 30,
+    // Role to assign when minimum score is reached
+    communityRole: "Verified Member",
+    // Community score levels and corresponding roles
+    scoreLevels: [
+      { score: 20, role: "Novice" },
+      { score: 40, role: "Apprentice" },
+      { score: 60, role: "Adept" },
+      { score: 80, role: "Expert" },
+      { score: 100, role: "Master" },
+    ],
+    // Require Warpcast verification for certain roles
+    requireWarpcast: false,
+  },
 };

@@ -41,6 +41,34 @@ export default {
         text: 'You can also just chat with me by mentioning me or using keywords like "help" or "question"',
       });
 
+    // Add wallet commands if wallet integration is enabled
+    if (config.walletIntegration && config.walletIntegration.enabled) {
+      helpEmbed.addFields([
+        {
+          name: "Wallet Commands",
+          value:
+            "The following commands help you set up and manage your crypto wallet:",
+        },
+        {
+          name: `${prefix}setup-wallet`,
+          value: "Create a new crypto wallet for your account (DM only)",
+        },
+        {
+          name: `${prefix}connect-wallet <address>`,
+          value: "Connect an external wallet to your account (DM only)",
+        },
+        {
+          name: `${prefix}connect-warpcast <username>`,
+          value: "Connect your Warpcast account (DM only)",
+        },
+        {
+          name: `${prefix}score`,
+          value:
+            "Calculate your community score based on wallet activity and Warpcast data (DM only)",
+        },
+      ]);
+    }
+
     // Send the embed to the channel
     message.channel.send({ embeds: [helpEmbed] });
   },
