@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Loader2, LogOut } from "lucide-react";
 import CastList from "../components/cast-list";
 import { useSession, signOut } from "next-auth/react";
-
+import { useRouter } from "next/navigation";
 // API Cast type from Neynar
 interface ApiCast {
   object: string;
@@ -162,12 +162,47 @@ const ScoreCard = ({ scoreData }: { scoreData: any }) => (
     </CardContent>
   </Card>
 );
+const SocialCard = ({ user }: { user: any }) => (
+  <Card className="overflow-hidden border-none bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md transition-all hover:shadow-lg">
+    <CardContent className="p-6">
+      <h3 className="mb-3 text-lg font-semibold">Social</h3>
+      <div className="flex items-center justify-between">
+        {!user && (
+          <NeynarAuthButton
+            label="Login with Farcaster"
+            customLogoUrl="
+          https://framerusercontent.com/images/DE2CvWySqIW7eDC8Ehs5bCK6g.svg"
+          />
+        )}
+        {user && (
+          <div className="flex w-full items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <img
+                src="https://framerusercontent.com/images/DE2CvWySqIW7eDC8Ehs5bCK6g.svg"
+                className="h-6 w-6"
+              />
+              Farcaster
+            </div>
+            <div className="flex items-center gap-2">
+              <NeynarAuthButton
+                label="Login with Farcaster"
+                customLogoUrl="
+          https://framerusercontent.com/images/DE2CvWySqIW7eDC8Ehs5bCK6g.svg"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </CardContent>
+  </Card>
+);
 
 const Web3ScoreCard = ({ web3Score }: { web3Score: any }) => (
   <Card className="overflow-hidden border-none bg-gradient-to-br from-emerald-50 to-teal-50 shadow-md transition-all hover:shadow-lg">
     <CardContent className="p-6">
       <h3 className="mb-3 text-lg font-semibold">Web3 Activity</h3>
-      <div className="grid grid-cols-2 gap-4">
+      <ConnectButton />
+      <div className="grid grid-cols-2 gap-4 mt-5">
         <div className="rounded-xl bg-white p-3 shadow-sm">
           <div className="text-sm text-gray-500">NFTs</div>
           <div className="text-xl font-semibold">
@@ -186,7 +221,7 @@ const Web3ScoreCard = ({ web3Score }: { web3Score: any }) => (
 );
 
 export default function Home() {
-  const { user } = useNeynarContext();
+  const { user, isAuthenticated } = useNeynarContext();
   const { address, isConnected } = useAccount();
   const { data: session } = useSession();
   const [text, setText] = useState("");
@@ -195,7 +230,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [userDbData, setUserDbData] = useState<any>(null);
   const [walletLinked, setWalletLinked] = useState(false);
-
+  const router = useRouter();
   // Check if user has submitted any casts
   const hasCasted = userCasts.length > 0;
 
@@ -284,8 +319,14 @@ export default function Home() {
   };
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: "/" });
+    await signOut({ callbackUrl: "/auth/signin" });
   };
+
+  useEffect(() => {
+    if (!session) {
+      router.push("/auth/signin");
+    }
+  }, [session]);
 
   useEffect(() => {
     fetchScore();
@@ -315,26 +356,21 @@ export default function Home() {
                 <span>Logout</span>
               </Button>
             )}
-            <ConnectButton />
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-8 flex justify-center">
-          <NeynarAuthButton
-            label="Login with Farcaster"
-            customLogoUrl="
-          https://framerusercontent.com/images/DE2CvWySqIW7eDC8Ehs5bCK6g.svg"
-          />
-        </div>
-
         {loading && !user && (
           <div className="my-12 flex justify-center">
             <Loader2 className="h-10 w-10 animate-spin text-violet-600" />
           </div>
         )}
-
+        {/* <NeynarAuthButton
+          label="Login with Farcaster"
+          customLogoUrl="
+          https://framerusercontent.com/images/DE2CvWySqIW7eDC8Ehs5bCK6g.svg"
+        /> */}
         {user && (
           <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-[1fr_2fr]">
             <div className="space-y-6">
@@ -409,7 +445,7 @@ export default function Home() {
                   )}
                 </>
               )}
-
+              <SocialCard user={user} />
               {userCasts.length > 0 && <CastList casts={userCasts} />}
             </div>
           </div>
