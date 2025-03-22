@@ -32,10 +32,12 @@ export interface IGeneralMetrics {
   totalCasts: number;
   totalLikes: number;
   totalReplies: number;
-  totalCharacters: number;
+  totalRecasts: number;
   avgLikesPerCast: number;
+  avgRepliesPerCast: number;
+  avgRecastsPerCast: number;
   engagementRate: number;
-  consistencyScore: number;
+  activityLevel: string;
 }
 
 export interface IGeneralScore {
@@ -47,19 +49,21 @@ export interface IGeneralScore {
 }
 
 export interface IUser extends Document {
-  fid: number;
-  username: string;
+  fid?: number;
+  username?: string;
   displayName: string;
-  pfpUrl: string;
+  pfpUrl?: string;
   bio?: string;
   signerUuid?: string;
+  discordId?: string;
+  email?: string;
   walletAddress?: string;
   web3Score?: IWeb3Score;
   generalScore?: IGeneralScore;
   casts?: any[];
   createdAt: Date;
   updatedAt: Date;
-  lastActiveAt: Date;
+  lastActiveAt?: Date;
 }
 
 // Define schema for Web3 metrics
@@ -84,8 +88,8 @@ const Web3MetricsSchema = new Schema<IWeb3Metrics>({
 // Define schema for Web3 score
 const Web3ScoreSchema = new Schema<IWeb3Score>({
   score: { type: Number, default: 0 },
-  rating: { type: String, default: "Novice" },
-  metrics: { type: Web3MetricsSchema, default: {} },
+  rating: { type: String, default: "Web3 Observer" },
+  metrics: { type: Web3MetricsSchema, default: () => ({}) },
   expertise: [{ type: String }],
   feedback: [{ type: String }],
   updatedAt: { type: Date, default: Date.now },
@@ -96,38 +100,62 @@ const GeneralMetricsSchema = new Schema<IGeneralMetrics>({
   totalCasts: { type: Number, default: 0 },
   totalLikes: { type: Number, default: 0 },
   totalReplies: { type: Number, default: 0 },
-  totalCharacters: { type: Number, default: 0 },
+  totalRecasts: { type: Number, default: 0 },
   avgLikesPerCast: { type: Number, default: 0 },
+  avgRepliesPerCast: { type: Number, default: 0 },
+  avgRecastsPerCast: { type: Number, default: 0 },
   engagementRate: { type: Number, default: 0 },
-  consistencyScore: { type: Number, default: 0 },
+  activityLevel: { type: String, default: "Low" },
 });
 
 // Define schema for general score
 const GeneralScoreSchema = new Schema<IGeneralScore>({
   score: { type: Number, default: 0 },
-  metrics: { type: GeneralMetricsSchema, default: {} },
+  metrics: { type: GeneralMetricsSchema, default: () => ({}) },
   rating: { type: String, default: "Beginner" },
   feedback: [{ type: String }],
   updatedAt: { type: Date, default: Date.now },
 });
 
-// Define User schema
+// User Schema
 const UserSchema = new Schema<IUser>(
   {
-    fid: { type: Number, required: true, unique: true },
-    username: { type: String, required: true },
+    // Farcaster fields
+    fid: { type: Number, sparse: true },
+    username: { type: String },
     displayName: { type: String, required: true },
     pfpUrl: { type: String },
     bio: { type: String },
     signerUuid: { type: String },
+
+    // Discord fields
+    discordId: { type: String, sparse: true },
+    email: { type: String, sparse: true },
+
+    // Wallet address
     walletAddress: { type: String },
+
+    // Scores
     web3Score: { type: Web3ScoreSchema },
     generalScore: { type: GeneralScoreSchema },
-    casts: { type: [Schema.Types.Mixed], default: [] },
-    lastActiveAt: { type: Date, default: Date.now },
+
+    // Casts
+    casts: { type: [Schema.Types.Mixed] },
+
+    // Use timestamps option instead of explicit createdAt/updatedAt
+    lastActiveAt: { type: Date },
   },
-  { timestamps: true } // Adds createdAt and updatedAt
+  {
+    timestamps: true,
+  }
 );
+
+// Create indexes for faster queries
+UserSchema.index({ fid: 1 });
+UserSchema.index({ discordId: 1 });
+UserSchema.index({ email: 1 });
+UserSchema.index({ username: 1 });
+UserSchema.index({ walletAddress: 1 });
 
 // Check if model is already defined (for Next.js hot reloading)
 let UserModel: Model<IUser>;

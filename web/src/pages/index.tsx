@@ -303,7 +303,11 @@ export default function Home() {
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8 flex justify-center">
-          <NeynarAuthButton />
+          <NeynarAuthButton
+            label="Login with Farcaster"
+            customLogoUrl="
+          https://framerusercontent.com/images/DE2CvWySqIW7eDC8Ehs5bCK6g.svg"
+          />
         </div>
 
         {loading && !user && (
@@ -395,8 +399,17 @@ export default function Home() {
 
       <footer className="mt-12 border-t border-gray-200 bg-white py-6 text-center">
         <p className="text-sm font-medium text-gray-500">
-          Made with <span className="text-red-500">❤️</span> by your frens at{" "}
-          <span className="text-violet-500">🌈</span>
+          Made with <span className="text-red-500">❤️</span> by{" "}
+          <span className="text-violet-500">
+            <a
+              href="https://x.com/corotvoid"
+              target="_blank"
+              className="underline "
+              rel="noopener noreferrer"
+            >
+              corotvoid.eth
+            </a>
+          </span>
         </p>
       </footer>
     </div>

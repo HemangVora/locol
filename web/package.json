@@ -8,6 +8,9 @@
     "start": "next start"
   },
   "dependencies": {
+    "@auth/core": "^0.38.0",
+    "@auth/mongodb-adapter": "^3.8.0",
+    "@auth/nextjs": "^0.0.0-380f8d56",
     "@farcaster/auth-kit": "^0.6.0",
     "@neynar/nodejs-sdk": "^2.23.0",
     "@neynar/react": "^1.2.0",
@@ -22,8 +25,10 @@
     "mongodb": "^6.15.0",
     "mongoose": "^8.12.2",
     "next": "^15.1.4",
+    "next-auth": "^4.24.11",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-icons": "^5.5.0",
     "swr": "^2.3.2",
     "viem": "2.23.3",
     "wagmi": "^2.14.11"

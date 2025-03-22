@@ -1,273 +1,374 @@
 import mongoose from "mongoose";
-import User, { IUser, IWeb3Score, IGeneralScore } from "../models/User";
+import UserModel, { IUser } from "../models/User";
+import clientPromise from "../lib/mongodb";
+import { APP_NAME } from "../lib/constants";
 
-// Connect to MongoDB database
-export async function connectToDatabase() {
-  try {
-    const connection = mongoose.connection;
-    if (connection.readyState >= 1) {
-      console.log("Already connected to MongoDB");
-      return true;
-    }
+// Export UserModel as User for backwards compatibility
+export const User = UserModel;
 
+// Connect to database or use existing connection
+export async function connectToMongoose() {
+  if (mongoose.connection.readyState !== 1) {
+    console.log("Not connected to MongoDB, connecting now...");
     await mongoose.connect(process.env.NEXT_PUBLIC_MONGODB_URI as string);
     console.log("Connected to MongoDB");
-    return true;
-  } catch (error) {
-    console.error("Failed to connect to MongoDB:", error);
-    return false;
+  } else {
+    console.log("Already connected to MongoDB");
   }
+  return { mongoose };
 }
 
-// Find a user by Farcaster ID
+// Find user by farcaster ID
 export async function findUserByFid(fid: number): Promise<IUser | null> {
-  try {
-    await connectToDatabase();
-    return await User.findOne({ fid });
-  } catch (error) {
-    console.error(`Error finding user with FID ${fid}:`, error);
-    return null;
-  }
+  await connectToMongoose();
+  return UserModel.findOne({ fid });
 }
 
-// Create or update a user
+// Find user by Discord ID
+export async function findUserByDiscordId(
+  discordId: string
+): Promise<IUser | null> {
+  await connectToMongoose();
+  return UserModel.findOne({ discordId });
+}
+
+// Find user by email
+export async function findUserByEmail(email: string): Promise<IUser | null> {
+  await connectToMongoose();
+  return UserModel.findOne({ email });
+}
+
+// Find user by wallet address
+export async function findUserByWalletAddress(
+  walletAddress: string
+): Promise<IUser | null> {
+  await connectToMongoose();
+  return UserModel.findOne({ walletAddress });
+}
+
+// Create or update user from Farcaster data
 export async function createOrUpdateUser(userData: {
   fid: number;
   username: string;
-  displayName: string;
+  displayName?: string;
   pfpUrl?: string;
   bio?: string;
   signerUuid?: string;
-}): Promise<IUser | null> {
-  try {
-    await connectToDatabase();
+}): Promise<IUser> {
+  await connectToMongoose();
 
-    // Check for required fields
-    if (!userData.fid || !userData.username) {
-      console.error("Missing required user data");
-      return null;
-    }
+  const { fid, username } = userData;
+  if (!fid || !username) {
+    throw new Error("FID and username are required");
+  }
 
-    // Check if user exists
-    let user = await User.findOne({ fid: userData.fid });
+  // Try to find existing user
+  let user = await UserModel.findOne({ fid });
 
-    if (user) {
-      // Update existing user
-      Object.assign(user, {
-        ...userData,
-        lastActiveAt: new Date(),
-      });
-
-      await user.save();
-      console.log(`Updated user ${userData.username} (${userData.fid})`);
-    } else {
-      // Create new user with initial scores
-      user = new User({
-        ...userData,
-        web3Score: {
-          score: 0,
-          rating: "Novice",
-          metrics: {},
-          expertise: [],
-          feedback: [
-            "Connect your wallet to start building your Web3 identity.",
-            "Post content related to blockchain, DeFi, or NFTs to improve your score.",
-          ],
-          updatedAt: new Date(),
-        },
-        generalScore: {
-          score: 0,
-          metrics: {},
-          rating: "Beginner",
-          feedback: [
-            "Create posts to improve your engagement score.",
-            "Engage with other users to build your Farcaster presence.",
-          ],
-          updatedAt: new Date(),
-        },
-        lastActiveAt: new Date(),
-      });
-
-      await user.save();
-      console.log(`Created new user ${userData.username} (${userData.fid})`);
-    }
-
+  if (user) {
+    // Update existing user
+    Object.assign(user, userData);
+    await user.save();
     return user;
-  } catch (error) {
-    console.error("Error creating/updating user:", error);
-    return null;
+  } else {
+    // Create new user
+    const newUser = new UserModel({
+      ...userData,
+      displayName: userData.displayName || username,
+    });
+
+    // Initialize scores for new users
+    if (!newUser.web3Score) {
+      newUser.web3Score = {
+        score: 0,
+        rating: "Web3 Observer",
+        metrics: {
+          totalWeb3Mentions: 0,
+          blockchainMentions: 0,
+          defiMentions: 0,
+          nftMentions: 0,
+          walletMentions: 0,
+          conceptMentions: 0,
+          web3Percentage: 0,
+          mostDiscussedCategory: "",
+          categories: {
+            blockchain: {},
+            defi: {},
+            nft: {},
+            wallet: {},
+            concepts: {},
+          },
+        },
+        expertise: ["Web3 Beginner"],
+        feedback: [
+          `Welcome to ${APP_NAME}! Start engaging with Web3 topics to build your score.`,
+        ],
+        updatedAt: new Date(),
+      };
+    }
+
+    if (!newUser.generalScore) {
+      newUser.generalScore = {
+        score: 0,
+        metrics: {
+          totalCasts: 0,
+          totalLikes: 0,
+          totalReplies: 0,
+          totalRecasts: 0,
+          avgLikesPerCast: 0,
+          avgRepliesPerCast: 0,
+          avgRecastsPerCast: 0,
+          engagementRate: 0,
+          activityLevel: "Low",
+        },
+        rating: "Beginner",
+        feedback: [
+          `Welcome to ${APP_NAME}! Start posting to build your presence.`,
+        ],
+        updatedAt: new Date(),
+      };
+    }
+
+    await newUser.save();
+    return newUser;
   }
 }
 
-// Update user's wallet address
+// Create or update user from Discord Auth
+export async function createOrUpdateUserFromAuth(userData: {
+  discordId: string;
+  email?: string;
+  displayName: string;
+  avatar?: string;
+}): Promise<IUser> {
+  await connectToMongoose();
+
+  const { discordId, email, displayName } = userData;
+  if (!discordId || !displayName) {
+    throw new Error("Discord ID and display name are required");
+  }
+
+  // Try to find existing user by Discord ID
+  let user = await UserModel.findOne({ discordId });
+
+  // If no user found by Discord ID but we have an email, try finding by email
+  if (!user && email) {
+    user = await UserModel.findOne({ email });
+  }
+
+  if (user) {
+    // Update existing user
+    user.discordId = discordId;
+    if (email) user.email = email;
+    if (displayName) user.displayName = displayName;
+    if (userData.avatar) user.pfpUrl = userData.avatar;
+
+    await user.save();
+    return user;
+  } else {
+    // Create new user
+    const newUser = new UserModel({
+      discordId,
+      email,
+      displayName,
+      pfpUrl: userData.avatar,
+    });
+
+    // Initialize scores for new users
+    if (!newUser.web3Score) {
+      newUser.web3Score = {
+        score: 0,
+        rating: "Web3 Observer",
+        metrics: {
+          totalWeb3Mentions: 0,
+          blockchainMentions: 0,
+          defiMentions: 0,
+          nftMentions: 0,
+          walletMentions: 0,
+          conceptMentions: 0,
+          web3Percentage: 0,
+          mostDiscussedCategory: "",
+          categories: {
+            blockchain: {},
+            defi: {},
+            nft: {},
+            wallet: {},
+            concepts: {},
+          },
+        },
+        expertise: ["Web3 Beginner"],
+        feedback: [
+          `Welcome to ${APP_NAME}! Start engaging with Web3 topics to build your score.`,
+        ],
+        updatedAt: new Date(),
+      };
+    }
+
+    if (!newUser.generalScore) {
+      newUser.generalScore = {
+        score: 0,
+        metrics: {
+          totalCasts: 0,
+          totalLikes: 0,
+          totalReplies: 0,
+          totalRecasts: 0,
+          avgLikesPerCast: 0,
+          avgRepliesPerCast: 0,
+          avgRecastsPerCast: 0,
+          engagementRate: 0,
+          activityLevel: "Low",
+        },
+        rating: "Beginner",
+        feedback: [
+          `Welcome to ${APP_NAME}! Start posting to build your presence.`,
+        ],
+        updatedAt: new Date(),
+      };
+    }
+
+    await newUser.save();
+    return newUser;
+  }
+}
+
+// Link Farcaster account to existing user (by Discord ID or email)
+export async function linkFarcasterAccount(
+  identifier: { discordId?: string; email?: string },
+  farcasterData: {
+    fid: number;
+    username: string;
+    displayName?: string;
+    pfpUrl?: string;
+    signerUuid?: string;
+  }
+): Promise<IUser | null> {
+  await connectToMongoose();
+
+  let user = null;
+
+  // Find user by Discord ID or email
+  if (identifier.discordId) {
+    user = await UserModel.findOne({ discordId: identifier.discordId });
+  } else if (identifier.email) {
+    user = await UserModel.findOne({ email: identifier.email });
+  }
+
+  if (!user) return null;
+
+  // Update user with Farcaster data
+  user.fid = farcasterData.fid;
+  user.username = farcasterData.username;
+  if (farcasterData.displayName) user.displayName = farcasterData.displayName;
+  if (farcasterData.pfpUrl) user.pfpUrl = farcasterData.pfpUrl;
+  if (farcasterData.signerUuid) user.signerUuid = farcasterData.signerUuid;
+
+  await user.save();
+  return user;
+}
+
+// Update wallet address
 export async function updateWalletAddress(
   fid: number,
   walletAddress: string
 ): Promise<IUser | null> {
-  try {
-    await connectToDatabase();
+  await connectToMongoose();
 
-    const user = await User.findOne({ fid });
-    if (!user) {
-      console.error(`User with FID ${fid} not found`);
-      return null;
-    }
+  const user = await UserModel.findOneAndUpdate(
+    { fid },
+    { $set: { walletAddress, updatedAt: new Date() } },
+    { new: true }
+  );
 
-    user.walletAddress = walletAddress;
-    user.lastActiveAt = new Date();
-
-    await user.save();
-    console.log(`Updated wallet address for user ${user.username} (${fid})`);
-    return user;
-  } catch (error) {
-    console.error(
-      `Error updating wallet address for user with FID ${fid}:`,
-      error
-    );
-    return null;
-  }
+  return user;
 }
 
-// Update user's Web3 score
+// Update wallet address by Discord ID
+export async function updateWalletAddressByDiscordId(
+  discordId: string,
+  walletAddress: string
+): Promise<IUser | null> {
+  await connectToMongoose();
+
+  const user = await UserModel.findOneAndUpdate(
+    { discordId },
+    { $set: { walletAddress, updatedAt: new Date() } },
+    { new: true }
+  );
+
+  return user;
+}
+
+// Update web3 score
 export async function updateWeb3Score(
   fid: number,
-  web3Score: IWeb3Score
+  web3Score: any
 ): Promise<IUser | null> {
-  try {
-    await connectToDatabase();
+  await connectToMongoose();
 
-    const user = await User.findOne({ fid });
-    if (!user) {
-      console.error(`User with FID ${fid} not found`);
-      return null;
-    }
+  const user = await UserModel.findOneAndUpdate(
+    { fid },
+    { $set: { web3Score, updatedAt: new Date() } },
+    { new: true }
+  );
 
-    user.web3Score = {
-      ...web3Score,
-      updatedAt: new Date(),
-    };
-    user.lastActiveAt = new Date();
-
-    await user.save();
-    console.log(`Updated Web3 score for user ${user.username} (${fid})`);
-    return user;
-  } catch (error) {
-    console.error(`Error updating Web3 score for user with FID ${fid}:`, error);
-    return null;
-  }
+  return user;
 }
 
-// Update user's general score
+// Update general score
 export async function updateGeneralScore(
   fid: number,
-  generalScore: IGeneralScore
+  generalScore: any
 ): Promise<IUser | null> {
-  try {
-    await connectToDatabase();
+  await connectToMongoose();
 
-    const user = await User.findOne({ fid });
-    if (!user) {
-      console.error(`User with FID ${fid} not found`);
-      return null;
-    }
+  const user = await UserModel.findOneAndUpdate(
+    { fid },
+    { $set: { generalScore, updatedAt: new Date() } },
+    { new: true }
+  );
 
-    user.generalScore = {
-      ...generalScore,
-      updatedAt: new Date(),
-    };
-    user.lastActiveAt = new Date();
-
-    await user.save();
-    console.log(`Updated general score for user ${user.username} (${fid})`);
-    return user;
-  } catch (error) {
-    console.error(
-      `Error updating general score for user with FID ${fid}:`,
-      error
-    );
-    return null;
-  }
+  return user;
 }
 
-// Update user's recent casts
+// Update user casts
 export async function updateUserCasts(
   fid: number,
   casts: any[]
 ): Promise<IUser | null> {
-  try {
-    await connectToDatabase();
+  await connectToMongoose();
 
-    const user = await User.findOne({ fid });
-    if (!user) {
-      console.error(`User with FID ${fid} not found`);
-      return null;
-    }
+  const user = await UserModel.findOneAndUpdate(
+    { fid },
+    { $set: { casts, updatedAt: new Date(), lastActiveAt: new Date() } },
+    { new: true }
+  );
 
-    user.casts = casts;
-    user.lastActiveAt = new Date();
-
-    await user.save();
-    console.log(`Updated casts for user ${user.username} (${fid})`);
-    return user;
-  } catch (error) {
-    console.error(`Error updating casts for user with FID ${fid}:`, error);
-    return null;
-  }
+  return user;
 }
 
-// Update user data (multiple fields at once)
+// Update all user data at once
 export async function updateUserData(
   fid: number,
-  updates: {
-    walletAddress?: string;
-    web3Score?: IWeb3Score;
-    generalScore?: IGeneralScore;
+  data: {
     casts?: any[];
-    bio?: string;
-    pfpUrl?: string;
-    displayName?: string;
+    web3Score?: any;
+    generalScore?: any;
+    walletAddress?: string;
   }
 ): Promise<IUser | null> {
-  try {
-    await connectToDatabase();
+  await connectToMongoose();
 
-    const user = await User.findOne({ fid });
-    if (!user) {
-      console.error(`User with FID ${fid} not found`);
-      return null;
-    }
+  const updateData: any = { updatedAt: new Date() };
+  if (data.casts) updateData.casts = data.casts;
+  if (data.web3Score) updateData.web3Score = data.web3Score;
+  if (data.generalScore) updateData.generalScore = data.generalScore;
+  if (data.walletAddress) updateData.walletAddress = data.walletAddress;
 
-    // Update only the fields that are present in the updates object
-    if (updates.walletAddress) user.walletAddress = updates.walletAddress;
-    if (updates.bio) user.bio = updates.bio;
-    if (updates.pfpUrl) user.pfpUrl = updates.pfpUrl;
-    if (updates.displayName) user.displayName = updates.displayName;
+  const user = await UserModel.findOneAndUpdate(
+    { fid },
+    { $set: updateData },
+    { new: true }
+  );
 
-    if (updates.web3Score) {
-      user.web3Score = {
-        ...updates.web3Score,
-        updatedAt: new Date(),
-      };
-    }
-
-    if (updates.generalScore) {
-      user.generalScore = {
-        ...updates.generalScore,
-        updatedAt: new Date(),
-      };
-    }
-
-    if (updates.casts) {
-      user.casts = updates.casts;
-    }
-
-    user.lastActiveAt = new Date();
-
-    await user.save();
-    console.log(`Updated data for user ${user.username} (${fid})`);
-    return user;
-  } catch (error) {
-    console.error(`Error updating data for user with FID ${fid}:`, error);
-    return null;
-  }
+  return user;
 }

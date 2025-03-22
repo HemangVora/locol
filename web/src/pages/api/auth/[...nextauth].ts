@@ -1,30 +1,28 @@
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
-import { MongoDBAdapter } from "@auth/mongodb-adapter";
-import clientPromise from "../../../lib/mongodb";
 import {
   findUserByDiscordId,
   createOrUpdateUserFromAuth,
 } from "../../../services/userService";
 
-export const authOptions = {
-  adapter: MongoDBAdapter(clientPromise),
+export const authOptions: NextAuthOptions = {
   providers: [
     DiscordProvider({
-      clientId: process.env.DISCORD_CLIENT_ID as string,
-      clientSecret: process.env.DISCORD_CLIENT_SECRET as string,
+      clientId: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID as string,
+      clientSecret: process.env.NEXT_PUBLIC_DISCORD_CLIENT_SECRET as string,
+
       authorization: { params: { scope: "identify email guilds" } },
     }),
   ],
   callbacks: {
-    async session({ session, user }: any) {
+    async session({ session, token }: any) {
       // Add the user's Discord ID to the session
-      if (user) {
-        session.user.id = user.id;
-        session.user.discordId = user.providerAccountId;
+      if (token) {
+        session.user.id = token.sub;
+        session.user.discordId = token.discordId;
 
         // Fetch additional user data from our database
-        const dbUser = await findUserByDiscordId(user.providerAccountId);
+        const dbUser = await findUserByDiscordId(token.discordId);
         if (dbUser) {
           session.user.farcasterLinked = !!dbUser.fid;
           session.user.walletLinked = !!dbUser.walletAddress;
@@ -33,6 +31,13 @@ export const authOptions = {
         }
       }
       return session;
+    },
+    async jwt({ token, account, profile }: any) {
+      // Store the Discord ID in the token
+      if (account && account.provider === "discord") {
+        token.discordId = profile.id;
+      }
+      return token;
     },
     async signIn({ user, account, profile }: any) {
       if (account.provider === "discord") {
@@ -59,7 +64,10 @@ export const authOptions = {
     signIn: "/auth/signin",
     error: "/auth/error",
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: "jwt" as const,
+  },
+  secret: process.env.NEXT_PUBLIC_NEXTAUTH_SECRET,
 };
 
 export default NextAuth(authOptions);

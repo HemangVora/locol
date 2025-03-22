@@ -24,7 +24,7 @@ export default async function handler(
         }
 
         const user = await findUserByFid(parseInt(fid));
-
+        console.log(user);
         if (!user) {
           return res
             .status(404)
@@ -34,12 +34,10 @@ export default async function handler(
         return res.status(200).json({ success: true, data: user });
       } catch (error) {
         console.error("Error fetching user:", error);
-        return res
-          .status(500)
-          .json({
-            success: false,
-            message: "An error occurred while fetching the user",
-          });
+        return res.status(500).json({
+          success: false,
+          message: "An error occurred while fetching the user",
+        });
       }
 
     case "POST":
@@ -58,12 +56,10 @@ export default async function handler(
         return res.status(200).json({ success: true, data: user });
       } catch (error) {
         console.error("Error creating/updating user:", error);
-        return res
-          .status(500)
-          .json({
-            success: false,
-            message: "An error occurred while saving the user",
-          });
+        return res.status(500).json({
+          success: false,
+          message: "An error occurred while saving the user",
+        });
       }
 
     case "PUT":
@@ -96,12 +92,10 @@ export default async function handler(
         return res.status(200).json({ success: true, data: updatedUser });
       } catch (error) {
         console.error("Error updating user data:", error);
-        return res
-          .status(500)
-          .json({
-            success: false,
-            message: "An error occurred while updating the user",
-          });
+        return res.status(500).json({
+          success: false,
+          message: "An error occurred while updating the user",
+        });
       }
 
     default:
