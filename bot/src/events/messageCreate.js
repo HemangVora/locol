@@ -2,6 +2,7 @@ import { Events } from "discord.js";
 import config from "../../config/config.js";
 import AIHelper from "../utils/ai-helper.js";
 import { getUserScore, answerScoreQuestion } from "../utils/scoreProcessor.js";
+import taskAgent from "../commands/task-agent.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -30,6 +31,7 @@ const TRIGGER_KEYWORDS = [
   "improve my score",
   "boost my score",
   "rank higher",
+  "raid this cast on farcaster",
 ];
 
 export default {
@@ -41,6 +43,15 @@ export default {
 
     // Handle prefix commands (these are handled in index.js, so we don't need to process them here)
     if (message.content.startsWith(config.prefix)) return;
+    console.log("messageCreateHandler 1", message);
+    // Check if message was processed by task agent
+    try {
+      const handled = await taskAgent.messageCreateHandler(message);
+      if (handled) return; // If task agent handled it, we're done
+    } catch (error) {
+      console.error("Error in task agent handler:", error);
+      // Continue processing even if task agent fails
+    }
 
     // Check if bot is mentioned
     const isMentioned = message.mentions.has(message.client.user.id);

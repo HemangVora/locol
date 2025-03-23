@@ -15,6 +15,12 @@ export default {
   // Channels to ignore (bot won't respond in these channels)
   ignoredChannels: [],
 
+  // Channels designated for tasks (raid requests, transactions, etc.)
+  taskChannels: ["tasks", "raids", "transaction-tasks"],
+
+  // Channel where task results will be posted (if null, defaults to "task-results")
+  taskResultsChannel: "task-results",
+
   // Roles that can use admin commands
   adminRoles: ["Admin", "Moderator"],
 

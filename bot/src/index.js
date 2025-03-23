@@ -190,9 +190,9 @@ const handleAutoResponse = (message) => {
   if (hasKeyword || Math.random() < botConfig.autoRespond.probability) {
     // We would integrate with an AI API here
     // For now, just send a basic response
-    message.channel.send(
-      `Hello ${message.author}, I noticed you might need help. I'm an AI assistant for this community. What can I do for you?`
-    );
+    // message.channel.send(
+    //   `Hello ${message.author}, I noticed you might need help. I'm an AI assistant for this community. What can I do for you?`
+    // );
   }
 };
 

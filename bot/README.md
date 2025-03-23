@@ -8,6 +8,7 @@ A Discord bot that acts as an AI agent to provide Web3 scores and answer questio
 - Provide detailed reports on user activity metrics
 - Answer questions about user profiles using AI
 - Integrate with the Locol web application's API
+- Process community tasks like Farcaster raids and on-chain transactions
 
 ## Commands
 
@@ -30,6 +31,30 @@ Examples:
 - "What's my web3 score? FID: 123456"
 - "How can I improve my score? My FID is 123456"
 - "Tell me about my profile 123456"
+
+### Task Processing
+
+In designated task channels, the bot automatically detects and processes task requests silently. Results are posted in a dedicated #task-results channel instead of the original task channel, keeping the task channel clean.
+
+#### Farcaster Raid Requests
+
+Simply post a message like:
+
+```
+raid this cast on farcaster https://warpcast.com/username/0123456789
+```
+
+The bot will process the request and provide instructions for community members to raid the cast in the #task-results channel.
+
+#### Transaction Tasks
+
+Post a transaction request like:
+
+```
+transact some task on chain: send $5 to get access
+```
+
+The bot will provide step-by-step instructions for completing the transaction and verification in the #task-results channel.
 
 ## Setup
 
