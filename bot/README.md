@@ -1,81 +1,57 @@
-# Discord Community AI Manager
+# Locol AI Bot
 
-An AI-powered Discord bot that helps with community management by monitoring chat, answering questions, and performing moderation tasks.
+A Discord bot that acts as an AI agent to provide Web3 scores and answer questions about user profiles.
 
 ## Features
 
-- Listens to messages and provides helpful responses
-- Moderates inappropriate content
-- Answers community FAQs
-- Summarizes discussions
-- Generates reports on community activity
-- Helps onboard new members
-- Custom commands for community management
+- Calculate and display user Web3 scores
+- Provide detailed reports on user activity metrics
+- Answer questions about user profiles using AI
+- Integrate with the Locol web application's API
+
+## Commands
+
+### Slash Commands
+
+- `/score [fid]` - Calculate and display your Web3 score using your Farcaster ID (FID)
+- `/ask [fid] [question]` - Ask questions about your Web3 profile
+
+### Text Commands
+
+- `!score [fid]` - Calculate and display your Web3 score
+- `!ask [fid] [question]` - Ask questions about your Web3 profile
+
+### Natural Language Interaction
+
+The bot also responds to natural language queries that contain trigger keywords like "web3 score" or "my score" if they include a Farcaster ID (FID) in the message.
+
+Examples:
+
+- "What's my web3 score? FID: 123456"
+- "How can I improve my score? My FID is 123456"
+- "Tell me about my profile 123456"
 
 ## Setup
 
-### Prerequisites
-
-- Node.js 16.x or higher
-- A Discord Bot Token (see [Discord Developer Portal](https://discord.com/developers/applications))
-- Discord.js v14 (installed via npm)
-
-### Installation
-
 1. Clone this repository
+2. Install dependencies: `npm install`
+3. Copy `.env.example` to `.env` and fill in your Discord bot token and other required variables
+4. Start the bot: `npm start`
 
-```bash
-git clone https://github.com/yourusername/discord-community-ai.git
-cd discord-community-ai
-```
+## Docker Setup
 
-2. Install dependencies
+See [DOCKER.md](DOCKER.md) for instructions on how to run the bot using Docker.
 
-```bash
-npm install
-```
+## Environment Variables
 
-3. Set up environment variables
+- `DISCORD_BOT_TOKEN` - Your Discord bot token
+- `API_URL` - URL to the Locol API for score calculations (default: http://localhost:3000)
+- `BOT_PREFIX` - Command prefix for text commands (default: !)
+- `BOT_NAME` - Name of the bot (default: Locol)
 
-```bash
-cp .env.example .env
-```
+## Integration with Locol Web Application
 
-Then edit the `.env` file and fill in your Discord Bot Token and other required values.
-
-4. Start the bot
-
-```bash
-npm start
-```
-
-### Adding the Bot to Your Server
-
-1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
-2. Select your application and go to the "OAuth2" tab
-3. Under "OAuth2 URL Generator", select the following scopes:
-   - bot
-   - applications.commands
-4. Select the required bot permissions:
-   - Read Messages/View Channels
-   - Send Messages
-   - Manage Messages
-   - Embed Links
-   - Attach Files
-   - Read Message History
-   - Use Slash Commands
-5. Copy the generated URL and open it in your browser to add the bot to your server
-
-## Usage
-
-### Commands
-
-- `!help` - Shows available commands
-- `!faq [topic]` - Answer common questions
-- `!moderate` - Activate moderation mode
-- `!summary` - Summarize recent discussions
-- `!report` - Generate community activity report
-- `!welcome` - Post welcome message for new members
+The bot communicates with the Locol web application API to fetch user scores and activity data. Make sure the API is accessible from the bot's environment.
 
 ## License
 

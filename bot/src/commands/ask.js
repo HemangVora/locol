@@ -1,14 +1,20 @@
 import { SlashCommandBuilder } from "discord.js";
-import { getUserScore, generateScoreReport } from "../utils/scoreProcessor.js";
+import { getUserScore, answerScoreQuestion } from "../utils/scoreProcessor.js";
 
 export default {
   data: new SlashCommandBuilder()
-    .setName("score")
-    .setDescription("Check your Web3 score")
+    .setName("ask")
+    .setDescription("Ask questions about your Web3 profile")
     .addStringOption((option) =>
       option
         .setName("fid")
         .setDescription("Your Farcaster ID")
+        .setRequired(true)
+    )
+    .addStringOption((option) =>
+      option
+        .setName("question")
+        .setDescription("What do you want to know about your profile?")
         .setRequired(true)
     ),
 
@@ -17,6 +23,7 @@ export default {
 
     try {
       const fid = interaction.options.getString("fid");
+      const question = interaction.options.getString("question");
 
       // Mock user info - in production, you would fetch this from your database
       const userInfo = {
@@ -27,17 +34,17 @@ export default {
       };
 
       const scoreData = await getUserScore(userInfo);
-      const report = generateScoreReport(scoreData);
+      const answer = answerScoreQuestion(question, scoreData);
 
       await interaction.editReply({
-        content: `**${interaction.user.username}'s Web3 Score Report**\n\n${report}`,
+        content: `**Question:** ${question}\n\n**Answer:** ${answer}`,
         ephemeral: false,
       });
     } catch (error) {
-      console.error("Error in score command:", error);
+      console.error("Error in ask command:", error);
       await interaction.editReply({
         content:
-          "Sorry, I was unable to fetch your score. Please try again later.",
+          "Sorry, I was unable to answer your question at this time. Please try again later.",
         ephemeral: true,
       });
     }

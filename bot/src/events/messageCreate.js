@@ -1,9 +1,36 @@
 import { Events } from "discord.js";
 import config from "../../config/config.js";
 import AIHelper from "../utils/ai-helper.js";
+import { getUserScore, answerScoreQuestion } from "../utils/scoreProcessor.js";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 // Initialize AI helper
 const aiHelper = new AIHelper();
+
+// Bot configuration
+const PREFIX = process.env.BOT_PREFIX || "!";
+const BOT_NAME = process.env.BOT_NAME || "Locol";
+
+// Cache for user score data to avoid excessive API calls
+const scoreCache = new Map();
+// 30 minutes cache expiration
+const CACHE_EXPIRY = 30 * 60 * 1000;
+
+// Keywords for the bot to respond to
+const TRIGGER_KEYWORDS = [
+  "web3 score",
+  "crypto score",
+  "my score",
+  "profile score",
+  "score report",
+  "how am i doing",
+  "how active am i",
+  "improve my score",
+  "boost my score",
+  "rank higher",
+];
 
 export default {
   name: Events.MessageCreate,
@@ -127,5 +154,168 @@ export default {
         }
       }
     }
+
+    // Handle direct command with prefix
+    if (message.content.startsWith(PREFIX)) {
+      const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+      const command = args.shift().toLowerCase();
+
+      if (command === "score") {
+        if (!args[0]) {
+          return message.reply(
+            "Please provide your Farcaster ID (FID). Example: `!score 123456`"
+          );
+        }
+
+        const fid = args[0];
+        await handleScoreCommand(message, fid);
+        return;
+      }
+
+      if (command === "ask") {
+        if (!args[0]) {
+          return message.reply(
+            "Please provide your Farcaster ID (FID) and a question. Example: `!ask 123456 what's my web3 score?`"
+          );
+        }
+
+        const fid = args[0];
+        const question = args.slice(1).join(" ");
+
+        if (!question) {
+          return message.reply(
+            "Please provide a question after your FID. Example: `!ask 123456 what's my web3 score?`"
+          );
+        }
+
+        await handleAskCommand(message, fid, question);
+        return;
+      }
+    }
+
+    // Check if the message is mentioning the bot or contains trigger keywords
+    const hasTriggerKeyword = TRIGGER_KEYWORDS.some((keyword) =>
+      message.content.toLowerCase().includes(keyword.toLowerCase())
+    );
+
+    // Handle mentions or trigger keywords
+    if (hasTriggerKeyword) {
+      // Extract the FID from the message
+      const fidMatch =
+        message.content.match(/\bfid:?\s*(\d+)/i) ||
+        message.content.match(/\b(\d{6,})\b/);
+
+      if (!fidMatch) {
+        message.reply(
+          `I can help you with your Web3 score and profile information. Please provide your Farcaster ID (FID) by saying something like "What's my score? FID: 123456"`
+        );
+        return;
+      }
+
+      const fid = fidMatch[1];
+
+      // If it looks like a direct question, try to answer it
+      if (message.content.includes("?")) {
+        await handleAskCommand(message, fid, message.content);
+      } else {
+        // Otherwise, just show the score
+        await handleScoreCommand(message, fid);
+      }
+    }
   },
 };
+
+/**
+ * Handle score command
+ * @param {Object} message - Discord message object
+ * @param {string} fid - Farcaster ID
+ */
+async function handleScoreCommand(message, fid) {
+  try {
+    // Show typing indicator
+    await message.channel.sendTyping();
+
+    const userInfo = {
+      fid,
+      username: message.author.username,
+      displayName: message.member?.displayName || message.author.username,
+      pfpUrl: message.author.displayAvatarURL(),
+    };
+
+    // Check cache first
+    let scoreData;
+    if (
+      scoreCache.has(fid) &&
+      scoreCache.get(fid).timestamp > Date.now() - CACHE_EXPIRY
+    ) {
+      scoreData = scoreCache.get(fid).data;
+    } else {
+      scoreData = await getUserScore(userInfo);
+      // Cache the result
+      scoreCache.set(fid, {
+        data: scoreData,
+        timestamp: Date.now(),
+      });
+    }
+
+    const scoreReport =
+      require("../utils/scoreProcessor.js").generateScoreReport(scoreData);
+
+    message.reply(
+      `**${message.author.username}'s Web3 Score Report**\n\n${scoreReport}`
+    );
+  } catch (error) {
+    console.error("Error in score command:", error);
+    message.reply(
+      "Sorry, I was unable to fetch your score. Please try again later."
+    );
+  }
+}
+
+/**
+ * Handle ask command
+ * @param {Object} message - Discord message object
+ * @param {string} fid - Farcaster ID
+ * @param {string} question - User question
+ */
+async function handleAskCommand(message, fid, question) {
+  try {
+    // Show typing indicator
+    await message.channel.sendTyping();
+
+    const userInfo = {
+      fid,
+      username: message.author.username,
+      displayName: message.member?.displayName || message.author.username,
+      pfpUrl: message.author.displayAvatarURL(),
+    };
+
+    // Check cache first
+    let scoreData;
+    if (
+      scoreCache.has(fid) &&
+      scoreCache.get(fid).timestamp > Date.now() - CACHE_EXPIRY
+    ) {
+      scoreData = scoreCache.get(fid).data;
+    } else {
+      scoreData = await getUserScore(userInfo);
+      // Cache the result
+      scoreCache.set(fid, {
+        data: scoreData,
+        timestamp: Date.now(),
+      });
+    }
+
+    const answer = require("../utils/scoreProcessor.js").answerScoreQuestion(
+      question,
+      scoreData
+    );
+
+    message.reply(answer);
+  } catch (error) {
+    console.error("Error in ask command:", error);
+    message.reply(
+      "Sorry, I was unable to answer your question at this time. Please try again later."
+    );
+  }
+}
