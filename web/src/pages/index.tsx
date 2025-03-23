@@ -371,6 +371,7 @@ export default function Home() {
           customLogoUrl="
           https://framerusercontent.com/images/DE2CvWySqIW7eDC8Ehs5bCK6g.svg"
         /> */}
+
         {user && (
           <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-[1fr_2fr]">
             <div className="space-y-6">
