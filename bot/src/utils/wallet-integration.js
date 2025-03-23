@@ -1,11 +1,15 @@
 import fetch from "node-fetch";
+import { PrivyClient } from "@privy-io/server-auth";
 
 /**
  * Utility class for wallet integrations and user validation
  */
+const privy = new PrivyClient(
+  process.env.PRIVY_API_ID,
+  process.env.PRIVY_SECRET_KEY
+);
 class WalletIntegration {
-  constructor(privyApiKey = null, etherscanApiKey = null) {
-    this.privyApiKey = privyApiKey || process.env.PRIVY_API_KEY;
+  constructor(etherscanApiKey = null) {
     this.etherscanApiKey = etherscanApiKey || process.env.ETHERSCAN_API_KEY;
     this.userWallets = new Map(); // userId -> {privyWalletId, connectedWallets[]}
     this.userScores = new Map(); // userId -> score
@@ -18,19 +22,16 @@ class WalletIntegration {
    * @returns {Promise<object>} - Wallet creation result
    */
   async createPrivyWallet(userId, userEmail = null) {
-    if (!this.privyApiKey) {
-      console.warn("No Privy API key provided. Cannot create wallet.");
-      return { success: false, error: "No API key configured" };
-    }
-
     try {
-      // In a real implementation, this would call the Privy API
-      // This is a mock implementation
+      const { id, address, chainType } = await privy.walletApi.create({
+        chainType: "ethereum",
+      });
+
       console.log(`Creating Privy wallet for user ${userId}`);
 
       // Mock response
       const walletId = `privy_${Date.now()}_${userId}`;
-      const walletAddress = `0x${Math.random().toString(16).substring(2, 42)}`;
+      const walletAddress = address;
 
       // Store wallet info
       this.userWallets.set(userId, {

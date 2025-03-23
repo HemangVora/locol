@@ -79,11 +79,7 @@ export default {
                 ? walletResult.walletAddress
                 : "Error creating wallet. Please contact an administrator.",
             },
-            {
-              name: "Connect Your Existing Wallets",
-              value:
-                "To boost your community score, you can connect your existing wallets. Send me a DM with: `!connect-wallet 0xYOUR_WALLET_ADDRESS`",
-            },
+
             {
               name: "Connect Your Warpcast Account",
               value:
